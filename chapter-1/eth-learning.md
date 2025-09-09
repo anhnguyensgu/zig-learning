@@ -1,0 +1,1 @@
+Implement RLP (EL serialization). Encode/decode lists, strings, integers; fuzz it.

@@ -28,6 +28,7 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
+
     // We will also create a module for our other entry point, 'main.zig'.
     const exe_mod = b.createModule(.{
         // `root_source_file` is the Zig "entry point" of the module. If a module
@@ -39,38 +40,34 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
+    const graphql_dep = b.dependency("graphql", .{});
+    exe_mod.addImport("graphql", graphql_dep.module("graphql"));
+
     // Modules can depend on one another using the `std.Build.Module.addImport` function.
     // This is what allows Zig source code to use `@import("foo")` where 'foo' is not a
     // file path. In this case, we set up `exe_mod` to import `lib_mod`.
-    exe_mod.addImport("eth_client_lib", lib_mod);
+    exe_mod.addImport("lc_tools_lib", lib_mod);
 
     // Now, we will create a static library based on the module we created above.
     // This creates a `std.Build.Step.Compile`, which is the build step responsible
     // for actually invoking the compiler.
     const lib = b.addLibrary(.{
         .linkage = .static,
-        .name = "eth_client",
+        .name = "lc_tools",
         .root_module = lib_mod,
     });
 
     // This declares intent for the library to be installed into the standard
     // location when the user invokes the "install" step (the default step when
     // running `zig build`).
+    b.installArtifact(lib);
+
     // This creates another `std.Build.Step.Compile`, but this one builds an executable
     // rather than a static library.
     const exe = b.addExecutable(.{
-        .name = "eth_client",
+        .name = "lc_tools",
         .root_module = exe_mod,
     });
-
-    const zap = b.dependency("zap", .{
-        .target = target,
-        .optimize = optimize,
-        .openssl = false, // set to true to enable TLS support
-    });
-
-    exe.root_module.addImport("zap", zap.module("zap"));
-    b.installArtifact(lib);
 
     // This declares intent for the executable to be installed into the
     // standard location when the user invokes the "install" step (the default
