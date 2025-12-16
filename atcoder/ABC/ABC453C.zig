@@ -1,6 +1,6 @@
 const std = @import("std");
 
-var nums: [100000005]i64 = undefined;
+var nums: [10E6]i64 = undefined;
 pub fn main() !void {
     const stdout = std.fs.File.stdout();
     const writer = stdout.deprecatedWriter();
@@ -8,26 +8,21 @@ pub fn main() !void {
     var stdin_buf: [1 << 16]u8 = undefined;
     var stdin_reader = std.fs.File.stdin().reader(&stdin_buf);
     var scanner = try Scanner.init(&stdin_reader.interface);
+
     const N: usize = @intCast(scanner.nextInt());
-    const Q: usize = @intCast(scanner.nextInt());
-
-    // for (0..N) |i| {
-    //     nums[i] = scanner.nextInt();
-    // }
-
-    var L: i64 = @intCast(N);
-    var R: i64 = -1;
-    for (0..Q) |_| {
-        const a = scanner.nextInt();
-        const b = scanner.nextInt();
-        L = @min(L, a);
-        R = @max(R, b);
-        var ans: usize = @intCast(R - L + 1);
-        ans = N - ans;
-        try writer.print("{d}\n", .{ans});
+    for (0..N) |i| {
+        nums[i] = scanner.nextInt();
     }
-    // _ = Q;
-    // _ = writer;
+    var max_reach: usize = 0;
+    for (0..N) |i| {
+        if (max_reach < i) {
+            break;
+        }
+        const next_reach = i + @as(usize, @intCast(nums[i] - 1));
+        max_reach = @max(next_reach, max_reach);
+    }
+
+    try writer.print("{}\n", .{@min(max_reach + 1, N)});
 }
 
 const Scanner = struct {
