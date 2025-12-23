@@ -22,7 +22,7 @@ fn dfs(comptime Type: type, node: *Node(Type)) void {
     }
 }
 
-fn bfs(comptime Type: type, node: *Node(Type), allocator: std.mem.Allocator) !void {
+fn bfsWithLinkedList(comptime Type: type, node: *Node(Type), allocator: std.mem.Allocator) !void {
     const BFSNode = struct {
         data: *Node(Type),
         link: std.DoublyLinkedList.Node = .{},
@@ -48,15 +48,30 @@ fn bfs(comptime Type: type, node: *Node(Type), allocator: std.mem.Allocator) !vo
     }
 }
 
+fn bfs(comptime Type: type, node: *Node(Type), allocator: std.mem.Allocator) !void {
+    var q = try Queue(*Node(Type)).init(allocator);
+    defer q.denit();
+    try q.push(node);
+
+    while (q.pop()) |cur_node| {
+        std.debug.print("{}\n", .{cur_node.value});
+        for (cur_node.children.items) |child| {
+            try q.push(child);
+        }
+    }
+}
+
 fn Queue(comptime T: type) type {
     return struct {
         items: std.ArrayList(T),
         allocator: std.mem.Allocator,
+        head: usize = 0,
         const Self = @This();
 
-        pub fn init(allocator: std.mem.Allocator) @This() {
+        pub fn init(allocator: std.mem.Allocator) !@This() {
+            const items = try std.ArrayList(T).initCapacity(allocator, 1000);
             return @This(){
-                .items = .{},
+                .items = items,
                 .allocator = allocator,
             };
         }
@@ -65,9 +80,11 @@ fn Queue(comptime T: type) type {
             try self.items.append(self.allocator, item);
         }
 
-
         pub fn pop(self: *Self) ?T {
-            self.items.pop();
+            if (self.head >= self.items.items.len) return null;
+            const result = self.items.items[self.head];
+            self.head += 1;
+            return result;
         }
 
         pub fn denit(self: *Self) void {
@@ -76,13 +93,24 @@ fn Queue(comptime T: type) type {
     };
 }
 
-test "Queue" {
-    var q = Queue(i32).init(std.testing.allocator);
+test "Queue push" {
+    var q = try Queue(i32).init(std.testing.allocator);
     defer q.denit();
     try q.push(1);
     try std.testing.expectEqual(1, q.items.items.len);
 }
 
+test "Queue pop" {
+    var q = try Queue(i32).init(std.testing.allocator);
+    defer q.denit();
+    try q.push(1);
+    const item = q.pop();
+    if (item) |it| {
+        try std.testing.expectEqual(1, it);
+    } else {
+        try std.testing.expect(false);
+    }
+}
 
 test "dfs" {
     const allocator = std.testing.allocator;
