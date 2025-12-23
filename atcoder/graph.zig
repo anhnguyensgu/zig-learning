@@ -47,6 +47,43 @@ fn bfs(comptime Type: type, node: *Node(Type), allocator: std.mem.Allocator) !vo
         }
     }
 }
+
+fn Queue(comptime T: type) type {
+    return struct {
+        items: std.ArrayList(T),
+        allocator: std.mem.Allocator,
+        const Self = @This();
+
+        pub fn init(allocator: std.mem.Allocator) @This() {
+            return @This(){
+                .items = .{},
+                .allocator = allocator,
+            };
+        }
+
+        pub fn push(self: *Self, item: T) !void {
+            try self.items.append(self.allocator, item);
+        }
+
+
+        pub fn pop(self: *Self) ?T {
+            self.items.pop();
+        }
+
+        pub fn denit(self: *Self) void {
+            self.items.deinit(self.allocator);
+        }
+    };
+}
+
+test "Queue" {
+    var q = Queue(i32).init(std.testing.allocator);
+    defer q.denit();
+    try q.push(1);
+    try std.testing.expectEqual(1, q.items.items.len);
+}
+
+
 test "dfs" {
     const allocator = std.testing.allocator;
     var node1 = Node(i64){ .value = 1 };
