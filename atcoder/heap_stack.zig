@@ -79,3 +79,18 @@ const GoodArray = struct {
         self.allocator.free(self.items);
     }
 };
+
+const SomethingConfused = struct {
+    x: u8,
+
+    pub fn init() SomethingConfused {
+        const a = SomethingConfused{ .x = 1 };
+        std.debug.print("init addr 0x{x}\n", .{@intFromPtr(&a)});
+        return a;
+    }
+};
+
+test "demo" {
+    const a = SomethingConfused.init();
+    std.debug.print("init addr 0x{x}\n", .{@intFromPtr(&a)});
+}
