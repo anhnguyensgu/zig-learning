@@ -1,28 +1,36 @@
 const std = @import("std");
 const rl = @import("raylib");
 const root = @import("raylib_learn");
+const DebugDraw = root.DebugDraw;
 
+const SPEED: f32 = 100;
 pub fn main() !void {
-    rl.initWindow(800, 800, "hello raylib");
+    const worldWidth = 400;
+    const worldHeight = 800;
+    rl.initWindow(worldWidth, worldHeight, "hello raylib");
     defer rl.closeWindow();
 
     rl.setWindowTitle("hello world");
 
     rl.setTargetFPS(60);
+
     var state = GameState{
         .chacter = Character{
-            .pos = rl.Vector2{ .x = 100, .y = 100 },
+            .pos = rl.Vector2{ .x = 0, .y = 0 },
         },
     };
 
-    const SPEED: f32 = 100;
-
+    const player = state.chacter;
+    const view_half_w: f32 = (@as(f32, @floatFromInt(rl.getScreenWidth())) * 0.5);
+    const view_half_h: f32 = (@as(f32, @floatFromInt(rl.getScreenHeight())) * 0.5);
+    var cam_target_x: f32 = player.pos.x + 20 * 0.5;
+    var cam_target_y: f32 = player.pos.y + 20 * 0.5;
     var camera = rl.Camera2D{
-        .offset = rl.Vector2{
-            .x = @as(f32, @floatFromInt(rl.getScreenWidth())) / 2.0,
-            .y = @as(f32, @floatFromInt(rl.getScreenHeight())) / 2.0,
-        },
         .target = state.chacter.pos,
+        .offset = rl.Vector2{
+            .x = view_half_w,
+            .y = view_half_h,
+        },
         .rotation = 0,
         .zoom = 1.0,
     };
@@ -30,27 +38,12 @@ pub fn main() !void {
     while (!rl.windowShouldClose()) {
         //set up
         const dt = rl.getFrameTime();
-        const speed = if (rl.isKeyDown(.left_shift))
-            300
-        else
-            SPEED;
 
-        if (rl.isKeyDown(.w)) {
-            state.chacter.pos.y -= speed * dt;
-        } else if (rl.isKeyDown(.s)) {
-            state.chacter.pos.y += speed * dt;
-        } else if (rl.isKeyDown(.d)) {
-            state.chacter.pos.x += speed * dt;
-        } else if (rl.isKeyDown(.a)) {
-            state.chacter.pos.x -= speed * dt;
-        }
+        handleMovement(&state.chacter, dt);
 
-        camera.target = state.chacter.pos;
-        //for resizable window
-        camera.offset = rl.Vector2{
-            .x = @as(f32, @floatFromInt(rl.getScreenWidth())) / 2.0,
-            .y = @as(f32, @floatFromInt(rl.getScreenHeight())) / 2.0,
-        };
+        cam_target_x = std.math.clamp(state.chacter.pos.x, camera.offset.x, 800 - camera.offset.x);
+        cam_target_y = std.math.clamp(state.chacter.pos.y, camera.offset.y, 800 - camera.offset.y);
+        camera.target = .init(cam_target_x, cam_target_y);
 
         // draw
         rl.beginDrawing();
@@ -60,11 +53,13 @@ pub fn main() !void {
         {
             camera.begin();
             defer camera.end();
-            DebugDraw.drawGrid(.{ .spacing = 50 });
-            DebugDraw.drawAxes(.{ .origin = .{ .x = 0, .y = 0 }, .len = 200 });
+            root.tile.draw();
+            // DebugDraw.drawGrid(.{ .spacing = 50 });
+            // DebugDraw.drawAxes(.{ .origin = .{ .x = 0, .y = 0 }, .len = 200 });
             const top_left_world = rl.getScreenToWorld2D(.{ .x = 0, .y = 0 }, camera);
             DebugDraw.drawCoords(state.chacter.pos, .{ .x = top_left_world.x, .y = top_left_world.y });
             CharacterUI.draw(state.chacter.pos);
+            // root.tile.debugDrawTileAt(chacterPos.x, chacterPos.y);
         }
     }
 }
@@ -76,7 +71,82 @@ const GameState = struct {
 
 const Character = struct {
     pos: rl.Vector2,
+    const SIZE: f32 = 20;
 };
+
+// Movement with tile collision
+// - pos: current position (top-left of character)
+// - SIZE: character width/height (20x20)
+// - Each direction checks TWO corners of the leading edge
+// - Using `if` (not `else if`) allows diagonal movement (W+D, etc.)
+// - Both corners must be clear for movement to be allowed
+//
+// DIAGONAL MOVEMENT (e.g., W + A = top-left):
+// When both W and A are pressed in the same frame:
+//   1. W runs first: checks top edge, updates Y if clear
+//   2. A runs second: checks left edge, updates X if clear
+//
+// ●───────────● ← W checks top edge
+// ●           │
+// │     P     │
+// ●───────────┘
+// ↑ A checks left edge
+//
+// Each axis is independent - if top is blocked but left is clear,
+// player slides along the wall horizontally (and vice versa).
+fn handleMovement(character: *Character, dt: f32) void {
+    const speed = if (rl.isKeyDown(.left_shift)) SPEED * 3 else SPEED;
+    const pos = character.pos;
+    const SIZE = Character.SIZE;
+
+    // UP: check top edge (top-left and top-right corners)
+    // ●───────────● ← check these two points
+    // │           │
+    // │     P     │
+    // └───────────┘
+    if (rl.isKeyDown(.w)) {
+        const new_y = pos.y - speed * dt;
+        if (!root.tile.isSolid(pos.x, new_y) and !root.tile.isSolid(pos.x + SIZE - 1, new_y)) {
+            character.pos.y = new_y;
+        }
+    }
+
+    // DOWN: check bottom edge (bottom-left and bottom-right corners)
+    // ┌───────────┐
+    // │     P     │
+    // │           │
+    // ●───────────● ← check these two points
+    if (rl.isKeyDown(.s)) {
+        const new_y = pos.y + speed * dt;
+        if (!root.tile.isSolid(pos.x, new_y + SIZE) and !root.tile.isSolid(pos.x + SIZE - 1, new_y + SIZE)) {
+            character.pos.y = new_y;
+        }
+    }
+
+    // LEFT: check left edge (top-left and bottom-left corners)
+    // ●───────────┐
+    // │           │  ← check these
+    // │     P     │    two points
+    // ●───────────┘
+    if (rl.isKeyDown(.a)) {
+        const new_x = pos.x - speed * dt;
+        if (!root.tile.isSolid(new_x, pos.y) and !root.tile.isSolid(new_x, pos.y + SIZE - 1)) {
+            character.pos.x = new_x;
+        }
+    }
+
+    // RIGHT: check right edge (top-right and bottom-right corners)
+    // ┌───────────●
+    // │           │  ← check these
+    // │     P     │    two points
+    // └───────────●
+    if (rl.isKeyDown(.d)) {
+        const new_x = pos.x + speed * dt;
+        if (!root.tile.isSolid(new_x + SIZE, pos.y) and !root.tile.isSolid(new_x + SIZE, pos.y + SIZE - 1)) {
+            character.pos.x = new_x;
+        }
+    }
+}
 
 const CharacterUI = struct {
     pub fn draw(pos: rl.Vector2) void {
@@ -86,56 +156,3 @@ const CharacterUI = struct {
     }
 };
 
-const DebugDraw = struct {
-    const AxesOpts = struct {
-        origin: rl.Vector2 = .{ .x = 0, .y = 0 },
-        len: i32 = 200,
-    };
-
-    const GridOpts = struct {
-        spacing: i32 = 50,
-    };
-
-    pub fn drawAxes(opts: AxesOpts) void {
-        const ox: i32 = @intFromFloat(opts.origin.x);
-        const oy: i32 = @intFromFloat(opts.origin.y);
-
-        // X axis (right is +X)
-        rl.drawLine(ox, oy, ox + opts.len, oy, .red);
-        rl.drawText("+X", ox + opts.len + 6, oy - 8, 16, .red);
-
-        // Y axis (down is +Y in raylib screen coords)
-        rl.drawLine(ox, oy, ox, oy + opts.len, .green);
-        rl.drawText("+Y", ox - 4, oy + opts.len + 6, 16, .green);
-
-        // origin marker
-        rl.drawCircle(ox, oy, 4, .black);
-        rl.drawText("(0,0)", ox + 8, oy + 8, 16, .black);
-    }
-
-    pub fn drawGrid(opts: GridOpts) void {
-        const w: i32 = rl.getScreenWidth();
-        const h: i32 = rl.getScreenHeight();
-        const s: i32 = @max(5, opts.spacing);
-
-        var x: i32 = 0;
-        while (x <= w) : (x += s) {
-            rl.drawLine(x, 0, x, h, rl.Color{ .r = 220, .g = 220, .b = 220, .a = 255 });
-            if (x != 0) rl.drawText(rl.textFormat("%d", .{x}), x + 2, 2, 12, .gray);
-        }
-
-        var y: i32 = 0;
-        while (y <= h) : (y += s) {
-            rl.drawLine(0, y, w, y, rl.Color{ .r = 220, .g = 220, .b = 220, .a = 255 });
-            if (y != 0) rl.drawText(rl.textFormat("%d", .{y}), 2, y + 2, 12, .gray);
-        }
-    }
-
-    pub fn drawCoords(player_pos: rl.Vector2, pos: rl.Vector2) void {
-        const posx: i32 = @intFromFloat(pos.x);
-        const posy: i32 = @intFromFloat(pos.y);
-        const mouse = rl.getMousePosition();
-        rl.drawText(rl.textFormat("mouse: (%.1f, %.1f)", .{ mouse.x, mouse.y }), posx, posy, 18, .black);
-        rl.drawText(rl.textFormat("player: (%.1f, %.1f)", .{ player_pos.x, player_pos.y }), posx, posy + 20, 18, .dark_blue);
-    }
-};
