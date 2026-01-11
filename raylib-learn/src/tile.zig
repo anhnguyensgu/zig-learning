@@ -36,7 +36,8 @@ pub fn draw() void {
 
 const std = @import("std");
 
-pub fn isSolid(x: f32, y: f32) bool {
+pub fn isSolid(x: f32, y: f32, worldWidth: f32, worldHeight: f32) bool {
+    if (x < 0 or x >= worldWidth or y < 0 or y >= worldHeight) return true;
     //world boundary
     const tileSize: f32 = @floatFromInt(TILE_SIZE);
     const rawTileX = @floor(x / tileSize);
@@ -45,7 +46,8 @@ pub fn isSolid(x: f32, y: f32) bool {
     //
     const tileX: usize = @intFromFloat(rawTileX);
     const tileY: usize = @intFromFloat(rawTileY);
-    return current_map[tileY][tileX] != 1;
+
+    return tileY >= current_map.len or tileX >= current_map[0].len or current_map[tileY][tileX] != 1;
 }
 
 // Call this in main after drawing tiles to see which tile is being checked

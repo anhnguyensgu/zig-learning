@@ -4,10 +4,13 @@ const root = @import("raylib_learn");
 const DebugDraw = root.DebugDraw;
 
 const SPEED: f32 = 100;
+const WORLD_WIDTH : f32 = 800;
+const WORLD_HEIGHT : f32 = 800;
+
 pub fn main() !void {
-    const worldWidth = 400;
-    const worldHeight = 800;
-    rl.initWindow(worldWidth, worldHeight, "hello raylib");
+    const windowWidth = 400;
+    const windowHeight = 800;
+    rl.initWindow(windowWidth, windowHeight, "hello raylib");
     defer rl.closeWindow();
 
     rl.setWindowTitle("hello world");
@@ -106,7 +109,7 @@ fn handleMovement(character: *Character, dt: f32) void {
     // └───────────┘
     if (rl.isKeyDown(.w)) {
         const new_y = pos.y - speed * dt;
-        if (!root.tile.isSolid(pos.x, new_y) and !root.tile.isSolid(pos.x + SIZE - 1, new_y)) {
+        if (!root.tile.isSolid(pos.x, new_y, WORLD_WIDTH, WORLD_HEIGHT) and !root.tile.isSolid(pos.x + SIZE - 1, new_y, WORLD_WIDTH, WORLD_HEIGHT)) {
             character.pos.y = new_y;
         }
     }
@@ -118,7 +121,7 @@ fn handleMovement(character: *Character, dt: f32) void {
     // ●───────────● ← check these two points
     if (rl.isKeyDown(.s)) {
         const new_y = pos.y + speed * dt;
-        if (!root.tile.isSolid(pos.x, new_y + SIZE) and !root.tile.isSolid(pos.x + SIZE - 1, new_y + SIZE)) {
+        if (!root.tile.isSolid(pos.x, new_y + SIZE, WORLD_WIDTH, WORLD_HEIGHT) and !root.tile.isSolid(pos.x + SIZE - 1, new_y + SIZE, WORLD_WIDTH, WORLD_HEIGHT)) {
             character.pos.y = new_y;
         }
     }
@@ -130,7 +133,7 @@ fn handleMovement(character: *Character, dt: f32) void {
     // ●───────────┘
     if (rl.isKeyDown(.a)) {
         const new_x = pos.x - speed * dt;
-        if (!root.tile.isSolid(new_x, pos.y) and !root.tile.isSolid(new_x, pos.y + SIZE - 1)) {
+        if (!root.tile.isSolid(new_x, pos.y, WORLD_WIDTH, WORLD_HEIGHT) and !root.tile.isSolid(new_x, pos.y + SIZE - 1, WORLD_WIDTH, WORLD_HEIGHT)) {
             character.pos.x = new_x;
         }
     }
@@ -142,7 +145,7 @@ fn handleMovement(character: *Character, dt: f32) void {
     // └───────────●
     if (rl.isKeyDown(.d)) {
         const new_x = pos.x + speed * dt;
-        if (!root.tile.isSolid(new_x + SIZE, pos.y) and !root.tile.isSolid(new_x + SIZE, pos.y + SIZE - 1)) {
+        if (!root.tile.isSolid(new_x + SIZE, pos.y, WORLD_WIDTH, WORLD_HEIGHT) and !root.tile.isSolid(new_x + SIZE, pos.y + SIZE - 1, WORLD_WIDTH, WORLD_HEIGHT)) {
             character.pos.x = new_x;
         }
     }
